@@ -1,7 +1,10 @@
 #include "FastLED.h"
 
 FASTLED_USING_NAMESPACE
+
+// https://github.com/FastLED/FastLED/wiki/ESP8266-notes
 #define FASTLED_ESP8266_D1_PIN_ORDER
+
 // FastLED "100-lines-of-code" demo reel, showing just a few
 // of the kinds of animation patterns you can quickly and easily
 // compose using FastLED.
@@ -37,20 +40,20 @@ const unsigned char COUNT_CORNER = 12;
 void setup()
 {
     delay(3000); // 3 second delay for recovery
+    Serial.begin(9600);
 
     // tell FastLED about the LED strip configuration
     FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-    //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-
+    
     // set master brightness control
     FastLED.setBrightness(BRIGHTNESS);
 
     fadeToBlackBy(leds, NUM_LEDS, 20);
-}
+} 
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { RotatingSplitHalf, RotatingSplitThirds, rainbow, Flower, /* confetti, */ WalkPatterns, sinelon, juggle, Snake, bpm };
+SimplePatternList gPatterns = { SpiralInwards, RandomGlow, RotatingSplitHalf, RotatingSplitThirds, rainbow, Flower, WalkPatterns, sinelon, juggle, /*Snake,*/ bpm };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 
@@ -67,7 +70,7 @@ void loop()
 
     // do some periodic updates
     EVERY_N_MILLISECONDS(20) { gHue++; } // slowly cycle the "base color" through the rainbow
-    EVERY_N_SECONDS(10) { nextPattern(); } // change patterns periodically
+    EVERY_N_SECONDS(20) { nextPattern(); } // change patterns periodically
 }
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
@@ -76,7 +79,45 @@ void nextPattern()
 {
     // add one to the current pattern number, and wrap around at the end
     gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
+
+    Serial.println(gCurrentPatternNumber);
 }
+
+// ----------------------------------------------------------------------------
+
+void HelperCorner(unsigned char hue, unsigned char offset)
+{
+    leds[PATTERN_CORNER[offset % COUNT_CORNER]] = CHSV(hue, 200, 255);
+}
+void HelperHex(unsigned char hue, unsigned char offset)
+{
+    leds[PATTERN_HEX[offset % COUNT_HEXS]] = CHSV(hue, 200, 255);
+}
+void HelperFlower(unsigned char hue, unsigned char offset)
+{
+    leds[PATTERN_FLOWER[offset % COUNT_FLOWERS]] = CHSV(hue, 200, 255);
+}
+
+void HelperFillCorner(unsigned char hue)
+{
+    for (unsigned short offset = 0; offset < COUNT_CORNER; offset++) {
+        leds[PATTERN_CORNER[offset]] = CHSV(hue, 200, 255);
+    }
+}
+void HelperFillHex(unsigned char hue)
+{
+    for (unsigned short offset = 0; offset < COUNT_HEXS; offset++) {
+        leds[PATTERN_HEX[offset]] = CHSV(hue, 200, 255);
+    }
+}
+void HelperFillFlowers(unsigned char hue)
+{
+    for (unsigned short offset = 0; offset < COUNT_FLOWERS; offset++) {
+        leds[PATTERN_FLOWER[offset]] = CHSV(hue, 200, 255);
+    }
+}
+
+// ----------------------------------------------------------------------------
 
 void rainbow()
 {
@@ -168,7 +209,7 @@ void WalkPatterns()
     if (offsetHex >= COUNT_HEXS) {
         offsetHex = 0;
     }
-    leds[PATTERN_HEX[offsetHex]] = CHSV(gHue, 200, 255);
+    HelperHex(gHue, offsetHex);
 
     static unsigned long nextUpdatedHex = 0;
     if (nextUpdatedHex < millis()) {
@@ -183,7 +224,7 @@ void WalkPatterns()
         offsetFlower = COUNT_FLOWERS - 1;
     }
     static const unsigned char BLARG = 10;
-    leds[PATTERN_FLOWER[offsetFlower]] = CHSV(gHue + 128 + (BLARG / COUNT_FLOWERS) * offsetFlower, 200, 255);
+    HelperFlower(gHue + 128 + (BLARG / COUNT_FLOWERS) * offsetFlower, offsetFlower);
 
     static unsigned long nextUpdatedFlower = 0;
     if (nextUpdatedFlower < millis()) {
@@ -197,7 +238,7 @@ void WalkPatterns()
     if (offsetCorner >= COUNT_CORNER) {
         offsetCorner = 0;
     }
-    leds[PATTERN_CORNER[offsetCorner]] = CHSV(gHue + 128, 200, 255);
+    HelperCorner(gHue + 128, offsetCorner);
 
     static unsigned long nextUpdatedCorner = 0;
     if (nextUpdatedCorner < millis()) {
@@ -211,17 +252,17 @@ void Snake()
     fadeToBlackBy(leds, NUM_LEDS, 10);
 
     const unsigned short SPEED = 1000;
-
     static unsigned short offset = 0;
-    if (offset > NUM_LEDS) {
-        offset = 0;
-    }
 
     static unsigned long nextUpdated = 0;
     if (nextUpdated < millis()) {
         nextUpdated = millis() + SPEED / NUM_LEDS;
         offset++;
     }
+
+    if (offset > NUM_LEDS) {
+        offset = 0;
+    }    
 
     leds[offset] = CHSV(gHue, 200, 255);
 }
@@ -256,4 +297,66 @@ void RotatingSplitThirds()
 void RotatingSplitHalf()
 {
     RotatingSplit(2);
+}
+
+void RandomGlow()
+{
+    const unsigned short SPEED = 100;
+    static unsigned long nextUpdated = 0;
+    if (nextUpdated < millis()) {
+        nextUpdated = millis() + SPEED;
+
+        static unsigned char hue = 0;
+
+        leds[random16(NUM_LEDS)] = CHSV(hue, 200, 255);
+        hue++;
+    }
+
+    static unsigned long nextUpdatedFade = 0;
+    if (nextUpdatedFade < millis()) {
+        nextUpdatedFade = millis() + 5;
+
+        fadeToBlackBy(leds, NUM_LEDS, 1);
+    }
+}
+
+void SpiralInwards()
+{
+    static unsigned long nextUpdatedFade = 0;
+    if (nextUpdatedFade < millis()) {
+        nextUpdatedFade = millis() + 5;
+
+        fadeToBlackBy(leds, NUM_LEDS, 1);
+    }
+
+    const unsigned short SPEED = 500;
+    static unsigned long nextUpdated = 0;
+    if (nextUpdated < millis()) {
+        nextUpdated = millis() + SPEED;
+
+        static unsigned char hue = 0;
+        hue += 15;
+
+        static unsigned char type = 0;
+        if (type > 2) {
+            type = 0;
+        }
+
+        switch (type) {
+            case 0: {
+                HelperFillCorner(hue);
+                break;
+            }
+            case 1: {
+                HelperFillHex(hue);
+                break;
+            }
+            case 2: {
+                HelperFillFlowers(hue);
+                break;
+            }
+        }
+
+        type++;
+    }
 }
