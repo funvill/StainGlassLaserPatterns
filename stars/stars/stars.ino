@@ -27,15 +27,31 @@ CRGB leds[NUM_LEDS];
 #define BRIGHTNESS 200
 #define FRAMES_PER_SECOND 120
 
+// The status LED not part of the patterns.
+const unsigned char LED_OFFSET = 1;
+const unsigned char LED_CENTER_START = 18;
+const unsigned char PIE_COUNT = 6;
+
+const unsigned char PATTERN_CORNERS[] = { 0, 3, 15, 36, 33, 21 };
+const unsigned char PATTERN_STARS[] = { 5, 7, 16, 18, 20, 29, 31 };
+const unsigned char PATTERN_PETALS[] = { 6, 10, 11, 12, 13, 17, 19, 23, 24, 25, 26, 30 };
+
+const unsigned char PATTERN_EDGES[] = { 1, 2, 4, 14, 27, 28, 35, 34, 32, 22, 9, 8 };
+
+const unsigned char PATTERN_STARS_OUTER[] = { 7, 5, 16, 29, 31, 20 };
+const unsigned char PATTERN_PETALS_OUTER[] = { 6, 13, 26, 30, 23, 10 };
+const unsigned char PATTERN_PETALS_INNER[] = { 11, 12, 17, 25, 24, 19 };
+
+const unsigned char COUNT_CORNERS = 6;
+const unsigned char COUNT_EDGES = 12;
+const unsigned char COUNT_STARS = 7;
+const unsigned char COUNT_PETALS = 12;
+
+const unsigned char COUNT_STARS_OUTER = 6;
+const unsigned char COUNT_PETALS_OUTER = 6;
+const unsigned char COUNT_PETALS_INNER = 6;
+
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
-
-const unsigned char PATTERN_FLOWER[] = { 4, 9, 14, 19, 24, 29 };
-const unsigned char PATTERN_HEX[] = { 0, 3, 5, 8, 10, 13, 15, 18, 20, 23, 25, 28 };
-const unsigned char PATTERN_CORNER[] = { 1, 2, 6, 7, 11, 12, 16, 17, 21, 22, 26, 27 };
-
-const unsigned char COUNT_FLOWERS = 6;
-const unsigned char COUNT_HEXS = 12;
-const unsigned char COUNT_CORNER = 12;
 
 void setup()
 {
@@ -44,16 +60,16 @@ void setup()
 
     // tell FastLED about the LED strip configuration
     FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-    
+
     // set master brightness control
     FastLED.setBrightness(BRIGHTNESS);
 
     fadeToBlackBy(leds, NUM_LEDS, 20);
-} 
+}
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { SpiralInwards, RandomGlow, RotatingSplitHalf, RotatingSplitThirds, rainbow, Flower, WalkPatterns, sinelon, juggle, /*Snake,*/ bpm };
+SimplePatternList gPatterns = { TypeHueRotate, RoatingBars, RandomGlow, RandomPie, RotatingPie, rainbow, sinelon, juggle, bpm }; 
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 
@@ -85,36 +101,41 @@ void nextPattern()
 
 // ----------------------------------------------------------------------------
 
-void HelperCorner(unsigned char hue, unsigned char offset)
+void HelperFillCorners(unsigned char hue)
 {
-    leds[PATTERN_CORNER[offset % COUNT_CORNER]] = CHSV(hue, 200, 255);
+    for (unsigned short offset = 0; offset < COUNT_CORNERS; offset++) {
+        leds[LED_OFFSET + PATTERN_CORNERS[offset]] = CHSV(hue, 200, 255);
+    }
 }
-void HelperHex(unsigned char hue, unsigned char offset)
+void HelperFillEdges(unsigned char hue)
 {
-    leds[PATTERN_HEX[offset % COUNT_HEXS]] = CHSV(hue, 200, 255);
+    for (unsigned short offset = 0; offset < COUNT_EDGES; offset++) {
+        leds[LED_OFFSET + PATTERN_EDGES[offset]] = CHSV(hue, 200, 255);
+    }
 }
-void HelperFlower(unsigned char hue, unsigned char offset)
+void HelperFillStars(unsigned char hue)
 {
-    leds[PATTERN_FLOWER[offset % COUNT_FLOWERS]] = CHSV(hue, 200, 255);
+    for (unsigned short offset = 0; offset < COUNT_STARS; offset++) {
+        leds[LED_OFFSET + PATTERN_STARS[offset]] = CHSV(hue, 200, 255);
+    }
+}
+void HelperFillPetals(unsigned char hue)
+{
+    for (unsigned short offset = 0; offset < COUNT_PETALS; offset++) {
+        leds[LED_OFFSET + PATTERN_PETALS[offset]] = CHSV(hue, 200, 255);
+    }
 }
 
-void HelperFillCorner(unsigned char hue)
+void HelperSetSingle(const unsigned char hue, const unsigned char offset)
 {
-    for (unsigned short offset = 0; offset < COUNT_CORNER; offset++) {
-        leds[PATTERN_CORNER[offset]] = CHSV(hue, 200, 255);
+    if (offset > NUM_LEDS) {
+        return; // Out of range.
     }
+    leds[LED_OFFSET + offset] = CHSV(hue, 200, 255);
 }
-void HelperFillHex(unsigned char hue)
+void HelperSetPatternSingle(const unsigned char hue, const unsigned char offset, const unsigned char* ledOffsets, const unsigned char maxCount)
 {
-    for (unsigned short offset = 0; offset < COUNT_HEXS; offset++) {
-        leds[PATTERN_HEX[offset]] = CHSV(hue, 200, 255);
-    }
-}
-void HelperFillFlowers(unsigned char hue)
-{
-    for (unsigned short offset = 0; offset < COUNT_FLOWERS; offset++) {
-        leds[PATTERN_FLOWER[offset]] = CHSV(hue, 200, 255);
-    }
+    HelperSetSingle(hue, ledOffsets[offset % maxCount]);
 }
 
 // ----------------------------------------------------------------------------
@@ -177,127 +198,60 @@ void juggle()
     }
 }
 
-void Flower()
+void TypeHueRotate()
 {
-    static const unsigned char BLARG = 30;
-    static const unsigned char LAYER_OFFSET = 255 / 3;
-
-    for (unsigned short offset = 0; offset < COUNT_FLOWERS; offset++) {
-        leds[PATTERN_FLOWER[offset]] = CHSV(gHue + (LAYER_OFFSET * 0) + (BLARG / COUNT_FLOWERS) * offset, 200, 255);
-    }
-
-    for (unsigned short offset = 0; offset < COUNT_HEXS; offset++) {
-        leds[PATTERN_HEX[offset]] = CHSV(gHue + (LAYER_OFFSET * 1) + (BLARG / COUNT_FLOWERS) * offset, 200, 255);
-    }
-
-    for (unsigned short offset = 0; offset < COUNT_CORNER; offset++) {
-        leds[PATTERN_CORNER[offset]] = CHSV(gHue + (LAYER_OFFSET * 2) + (BLARG / COUNT_FLOWERS) * offset, 200, 255);
-    }
-
-    gHue += 2;
+    HelperFillCorners(gHue + ((255 / 4) * 1));
+    HelperFillEdges(gHue + ((255 / 4) * 2));
+    HelperFillStars(gHue + ((255 / 4) * 3));
+    HelperFillPetals(gHue + ((255 / 4) * 4));
 }
 
-void WalkPatterns()
+void SetPie(const unsigned char section, const unsigned char hueInnerPetals, const unsigned char hueOuterPetals, const unsigned char hueStars, const unsigned char hueEdge, const unsigned char hueCorner)
 {
-    fadeToBlackBy(leds, NUM_LEDS, 10);
 
-    const unsigned short SPEED = 2000;
+    HelperSetPatternSingle(hueInnerPetals, section % PIE_COUNT, PATTERN_PETALS_INNER, COUNT_PETALS_INNER);
+    HelperSetPatternSingle(hueOuterPetals, section % PIE_COUNT, PATTERN_PETALS_OUTER, COUNT_PETALS_OUTER);
+    HelperSetPatternSingle(hueStars, section % PIE_COUNT, PATTERN_STARS_OUTER, COUNT_STARS_OUTER);
+    HelperSetPatternSingle(hueCorner, section % PIE_COUNT, PATTERN_CORNERS, COUNT_CORNERS);
 
-    // HEXS
-    // ============================================================
-    static unsigned short offsetHex = 0;
-    if (offsetHex >= COUNT_HEXS) {
-        offsetHex = 0;
-    }
-    HelperHex(gHue, offsetHex);
-
-    static unsigned long nextUpdatedHex = 0;
-    if (nextUpdatedHex < millis()) {
-        nextUpdatedHex = millis() + SPEED / COUNT_HEXS;
-        offsetHex++;
-    }
-
-    // Flower
-    // ============================================================
-    static short offsetFlower = COUNT_FLOWERS - 1;
-    if (offsetFlower < 0) {
-        offsetFlower = COUNT_FLOWERS - 1;
-    }
-    static const unsigned char BLARG = 10;
-    HelperFlower(gHue + 128 + (BLARG / COUNT_FLOWERS) * offsetFlower, offsetFlower);
-
-    static unsigned long nextUpdatedFlower = 0;
-    if (nextUpdatedFlower < millis()) {
-        nextUpdatedFlower = millis() + SPEED / COUNT_FLOWERS;
-        offsetFlower--;
-    }
-
-    // corner
-    // ============================================================
-    static short offsetCorner = 0;
-    if (offsetCorner >= COUNT_CORNER) {
-        offsetCorner = 0;
-    }
-    HelperCorner(gHue + 128, offsetCorner);
-
-    static unsigned long nextUpdatedCorner = 0;
-    if (nextUpdatedCorner < millis()) {
-        nextUpdatedCorner = millis() + SPEED / COUNT_CORNER;
-        offsetCorner++;
-    }
+    // There are more edges then the other elements.
+    HelperSetPatternSingle(hueEdge, (section % PIE_COUNT) * 2 + 0, PATTERN_EDGES, COUNT_EDGES);
+    HelperSetPatternSingle(hueEdge, (section % PIE_COUNT) * 2 + 1, PATTERN_EDGES, COUNT_EDGES);
 }
 
-void Snake()
+void RotatingPie()
 {
-    fadeToBlackBy(leds, NUM_LEDS, 10);
+    static const unsigned char SPEED = 100;
+    fadeToBlackBy(leds, NUM_LEDS, 30);
 
-    const unsigned short SPEED = 1000;
-    static unsigned short offset = 0;
+    static unsigned char offset = 0;
 
+    // SetPie(offset,  gHue + ((255 / 5) * 1), gHue + ((255 / 5) * 2), gHue + ((255 / 5) * 3), gHue + ((255 / 5) * 4), gHue + ((255 / 5) * 5) );
+    HelperSetSingle(gHue, LED_CENTER_START);
+    SetPie(offset, gHue + 8, gHue + 16, gHue + 24, gHue + 32, gHue + 40);
     static unsigned long nextUpdated = 0;
     if (nextUpdated < millis()) {
-        nextUpdated = millis() + SPEED / NUM_LEDS;
+        nextUpdated = millis() + SPEED;
         offset++;
-    }
-
-    if (offset > NUM_LEDS) {
-        offset = 0;
-    }    
-
-    leds[offset] = CHSV(gHue, 200, 255);
-}
-
-void RotatingSplit(unsigned int splits)
-{
-    fadeToBlackBy(leds, NUM_LEDS, 10);
-
-    static unsigned short offset = 0;
-    const unsigned short SPEED = 2000;
-    static unsigned long nextUpdated = 0;
-    if (nextUpdated < millis()) {
-        nextUpdated = millis() + SPEED / NUM_LEDS;
-        offset++;
-    }
-
-    const unsigned short sizeOfSlice = NUM_LEDS / splits;
-
-    for (unsigned int section = 0; section < 6; section++) {
-        for (unsigned int n = 0; n < sizeOfSlice; n++) {
-            unsigned int z = section * sizeOfSlice + n + offset;
-
-            leds[z % NUM_LEDS] = CHSV(gHue + (255 / 3) * section, 200, 255);
+        if (offset > PIE_COUNT) {
+            offset = 1;
         }
     }
 }
 
-void RotatingSplitThirds()
+void RandomPie()
 {
-    RotatingSplit(3);
+    fadeToBlackBy(leds, NUM_LEDS, 1);
+
+    static const unsigned char SPEED = 200;
+
+    static unsigned long nextUpdated = 0;
+    if (nextUpdated < millis()) {
+        nextUpdated = millis() + SPEED;
+        SetPie(random8(PIE_COUNT), gHue + 8, gHue + 16, gHue + 24, gHue + 32, gHue + 40);
+    }
 }
-void RotatingSplitHalf()
-{
-    RotatingSplit(2);
-}
+
 
 void RandomGlow()
 {
@@ -320,43 +274,28 @@ void RandomGlow()
     }
 }
 
-void SpiralInwards()
+
+void RoatingBars() 
 {
-    static unsigned long nextUpdatedFade = 0;
-    if (nextUpdatedFade < millis()) {
-        nextUpdatedFade = millis() + 5;
+    const unsigned short SPEED = 300;
+    const unsigned char BARS_COUNT = 6;
+    const unsigned char bar[24] = {26, 17, 12, 6, 13, 17, 25, 30, 26, 25, 24, 23, 30, 24, 19, 10, 23, 19, 11, 6, 10, 11, 12, 13 };
 
-        fadeToBlackBy(leds, NUM_LEDS, 1);
-    }
+    fadeToBlackBy(leds, NUM_LEDS, 1);
 
-    const unsigned short SPEED = 500;
+    static unsigned long offset = 0;
     static unsigned long nextUpdated = 0;
     if (nextUpdated < millis()) {
         nextUpdated = millis() + SPEED;
-
-        static unsigned char hue = 0;
-        hue += 15;
-
-        static unsigned char type = 0;
-        if (type > 2) {
-            type = 0;
-        }
-
-        switch (type) {
-            case 0: {
-                HelperFillCorner(hue);
-                break;
-            }
-            case 1: {
-                HelperFillHex(hue);
-                break;
-            }
-            case 2: {
-                HelperFillFlowers(hue);
-                break;
-            }
-        }
-
-        type++;
+        offset ++;
+        if (offset >= BARS_COUNT) {
+            offset = 0;
+        } 
     }
+
+    const unsigned short SIZE_OF_BAR = 4 ; 
+    for( unsigned char pixelOffset = 0 ; pixelOffset < SIZE_OF_BAR ; pixelOffset++ ) {
+         HelperSetSingle(gHue, bar[ offset * 4 + pixelOffset ]) ; 
+    }
+
 }
