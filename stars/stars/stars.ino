@@ -69,7 +69,7 @@ void setup()
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { TypeHueRotate, RoatingBars, RandomGlow, RandomPie, RotatingPie, rainbow, sinelon, juggle, bpm }; 
+SimplePatternList gPatterns = { Circles ,CycleInnward, Snake, RotatingPie, TypeHueRotate, RoatingBars, RotatingPie, RandomGlow, RandomPie, rainbow, sinelon, juggle, bpm }; 
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 
@@ -221,12 +221,11 @@ void SetPie(const unsigned char section, const unsigned char hueInnerPetals, con
 
 void RotatingPie()
 {
-    static const unsigned char SPEED = 100;
-    fadeToBlackBy(leds, NUM_LEDS, 30);
+    static const unsigned char SPEED = 250;
+    fadeToBlackBy(leds, NUM_LEDS, 10);
 
     static unsigned char offset = 0;
 
-    // SetPie(offset,  gHue + ((255 / 5) * 1), gHue + ((255 / 5) * 2), gHue + ((255 / 5) * 3), gHue + ((255 / 5) * 4), gHue + ((255 / 5) * 5) );
     HelperSetSingle(gHue, LED_CENTER_START);
     SetPie(offset, gHue + 8, gHue + 16, gHue + 24, gHue + 32, gHue + 40);
     static unsigned long nextUpdated = 0;
@@ -297,5 +296,78 @@ void RoatingBars()
     for( unsigned char pixelOffset = 0 ; pixelOffset < SIZE_OF_BAR ; pixelOffset++ ) {
          HelperSetSingle(gHue, bar[ offset * 4 + pixelOffset ]) ; 
     }
-
 }
+
+void Snake() {
+    const unsigned short SPEED = 50;
+    const unsigned char SNAKE_COUNT = 37;
+    
+    const unsigned char snake[] = {6,2,3,5,12,13,4,14,15,16,17,26,27,28,36,29,25,30,35,34,33,31,24,23,32,22,21,20,19,10,9,8,0,1,7,11};
+    
+    HelperSetSingle(gHue, LED_CENTER_START);
+
+    static unsigned long offset = 0;
+    static unsigned long nextUpdated = 0;
+    if (nextUpdated < millis()) {
+        nextUpdated = millis() + SPEED;
+        offset ++;
+        if (offset >= SNAKE_COUNT) {
+            offset = 0;
+        } 
+        
+    }
+    HelperSetSingle(gHue, snake[ offset ]) ; 
+    fadeToBlackBy(leds, NUM_LEDS, 1);
+}
+
+void CycleInnward() {
+    const unsigned short SPEED = 50;
+    const unsigned char SNAKE_COUNT = 38;
+
+    const unsigned char snake[] = {0,1,2,3,4,14,15,27,28,36,35,34,33,32,22,21,9,8,7,6,5,13,16,26,29,30,31,23,20,10,11,12,17,25,24,19,18}; 
+
+    static unsigned long offset = 0;
+    static unsigned long nextUpdated = 0;
+    if (nextUpdated < millis()) {
+        nextUpdated = millis() + SPEED;
+        offset ++;
+        if (offset >= SNAKE_COUNT) {
+            offset = 0;
+        } 
+        
+    }
+    HelperSetSingle(gHue, snake[ offset ]) ; 
+    fadeToBlackBy(leds, NUM_LEDS, 2);    
+}
+
+
+void Circles() {
+    
+    const unsigned short SPEED = 50;
+    char direction = 1;
+
+    const unsigned char OUTSIDE_COUNT = 18;
+    const unsigned char outside[] = {0,1,2,3,4,14,15,27,28,36,35,34,33,32,22,21,9,8}; 
+    const unsigned char MIDDLE_COUNT = 12;
+    const unsigned char middle[] = {7,6,5,13,16,26,29,30,31,23,20,10};    
+    const unsigned char INSIDE_COUNT = 6;
+    const unsigned char inside[] = {11,12,17,25,24,19}; 
+
+    static unsigned long offset = 0;
+    static unsigned long nextUpdated = 0;
+    if (nextUpdated < millis()) {
+        nextUpdated = millis() + SPEED;
+        offset = offset + direction ;
+        if (offset >= 18 && direction > 0 || offset <= 0 && direction < 0 ) {
+            direction = direction * -1 ; 
+        } 
+        
+    }
+    HelperSetSingle(gHue + ((255 / 4) * 1), outside[ offset % OUTSIDE_COUNT ]) ; 
+    HelperSetSingle(gHue + ((255 / 4) * 2), middle[ MIDDLE_COUNT - (offset % MIDDLE_COUNT) -1 ]) ; 
+    HelperSetSingle(gHue + ((255 / 4) * 3), inside[ offset % INSIDE_COUNT ]) ; 
+    HelperSetSingle(gHue + ((255 / 4) * 4), LED_CENTER_START);
+
+    fadeToBlackBy(leds, NUM_LEDS, 10);    
+}
+
