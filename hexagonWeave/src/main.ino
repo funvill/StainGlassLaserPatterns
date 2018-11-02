@@ -43,19 +43,18 @@ const uint8_t PATTERN_RING_THREE[] = {15,14,13,23,28,40,45,46,47,37,32,20};
 const uint8_t PATTERN_RING_FOUR[] = {6,7,8,9,12,24,27,41,44,54,53,52,51,48,36,33,19,16};
 const uint8_t PATTERN_RING_FIVE[] = {4,3,2,1,0,10,11,25,26,42,43,55,56,57,58,59,60,50,49,35,34,18,17,5};
 
+const uint8_t PATTERN_TRIANGLES[] = {14,22,31,40,48,50,52,54,55,30,47,45, // Top 
+                                     1, 14,13,37,39,41,42,24, 9,30,13,28, // Right 
+                                     46,38,20, 5, 6, 8,10,12,29,30,15,13, // Bottom 
+                                     23,21,19,18,36,51,59,46,29,30,32,47  // Left 
+                                     };
 
-
-// Patterns 
-const uint8_t STARS[] = {4,8,18,25,21,11};
-const uint8_t EDGES[] = {1,0,6,7,17,27,28,29,23,22,12,2};
-// const uint8_t HEXES[] = {3,5,10,13,15,16,20,24,26};
-const uint8_t CENTERS[] = {9,14,19};
-
-const uint8_t PATTERN_TRIANGLES[] = {9,5,6,7,8, 15,16,17,18,27,  19,26,28,25,29,  20,24,23,21,22,  12,13,14,11,2, 1,0,3,4,10 };
-
-#define PATTERN_RINGS_ONE EDGES
-// const uint8_t PATTERN_RINGS_TWO[] = {3,4,5,8,16,18,26,25,24,21,13,11};
-// const uint8_t PATTERN_RINGS_THREE[] = {9,15,19,20,14,10};
+const uint8_t PATTERN_SIXTH[] = { 4, 3, 2, 1, 6, 7, 8,15,14,21,
+                                  0,10,11,25, 9,12,24,13,23,22,
+                                 26,27,28,29,40,41,42,44,43,55,
+                                 56,54,45,39,46,53,52,57,58,59,
+                                 60,50,49,35,51,48,36,47,37,38,
+                                 34,18,17, 5,33,19,16,32,20,31};
 
 void setup() {
   delay(3000); // 3 second delay for recovery
@@ -74,7 +73,7 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { Clock, Groups, Rings,  /* Triangles, */ confetti, rainbow, sinelon, bpm, juggle };
+SimplePatternList gPatterns = { Triangles, Sixth, Clock, Groups, Rings, confetti, rainbow, sinelon, bpm, juggle };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -145,6 +144,28 @@ void TestPattern(){
 // ----------------------------------------------------------------------------
 
 void PatternRotateThoughSubSections( unsigned long &nextUpdate, uint16_t &segmentOffset, const uint8_t * pattern, uint32_t patternSize, uint32_t subsectionSize, long speed, int8_t direction, uint8_t hue) {
+
+
+/*   Serial.print("[PatternRotateThoughSubSections nextUpdate=");
+  Serial.print(nextUpdate);
+  Serial.print(" segmentOffset=");
+  Serial.print(segmentOffset);
+  Serial.print(" patternSize=");
+  Serial.print(patternSize);
+  Serial.print(" subsectionSize=");
+  Serial.print(subsectionSize);
+  Serial.print(" speed=");
+  Serial.print(speed);
+  Serial.print(" direction=");
+  Serial.print(direction);
+  Serial.print(" hue=");
+  Serial.print(hue);
+  Serial.print("]");
+ */
+  if( patternSize <= 0 || subsectionSize <= 0 || speed <= 0 || subsectionSize > patternSize) {
+    return ; 
+  }
+
   // Only update the segments on a timer. 
   if (nextUpdate < millis()) {
     nextUpdate = millis() + speed;
@@ -296,30 +317,44 @@ void Groups() {
 }
 
 void Triangles() {
-  fadeToBlackBy(leds, NUM_LEDS, 4);
-  static unsigned long nextUpdate = 0 ;
-  static uint16_t segmentOffset = 0 ; 
-  PatternRotateThoughSubSections( nextUpdate, segmentOffset, PATTERN_TRIANGLES , ARRAY_SIZE(PATTERN_TRIANGLES ), 5, 100, 1, gHue);   
+  fadeToBlackBy(leds, NUM_LEDS, 6);
+  static unsigned long nextUpdate[1]  ;
+  static uint16_t segmentOffset[1] ; 
+  PatternRotateThoughSubSections( nextUpdate[0], segmentOffset[0], PATTERN_TRIANGLES , ARRAY_SIZE(PATTERN_TRIANGLES ), 12, 700, 1, gHue);
 }
 
 void Clock() {
-  fadeToBlackBy(leds, NUM_LEDS, 4);
+  fadeToBlackBy(leds, NUM_LEDS, 6);
 
   static unsigned long nextUpdate[5] ;
   static uint16_t segmentOffset[5] ; 
-  PatternRotateThoughSubSections( nextUpdate[0], segmentOffset[0], PATTERN_RING_ONE , ARRAY_SIZE(PATTERN_RING_ONE), 1, 250, 1, gHue + (255/5) * 0);   
-  PatternRotateThoughSubSections( nextUpdate[1], segmentOffset[1], PATTERN_RING_TWO , ARRAY_SIZE(PATTERN_RING_TWO), 1, 200, 1, gHue + (255/5) * 1);   
-  PatternRotateThoughSubSections( nextUpdate[2], segmentOffset[2], PATTERN_RING_THREE , ARRAY_SIZE(PATTERN_RING_THREE), 1, 150, 1, gHue + (255/5) * 2);   
-  PatternRotateThoughSubSections( nextUpdate[3], segmentOffset[3], PATTERN_RING_FOUR , ARRAY_SIZE(PATTERN_RING_FOUR), 1, 100, 1, gHue + (255/5) * 3);   
-  PatternRotateThoughSubSections( nextUpdate[4], segmentOffset[4], PATTERN_RING_FIVE , ARRAY_SIZE(PATTERN_RING_FIVE), 1, 50, 1, gHue + (255/5) * 4);   
+  static bool startup = true; 
+  if( startup ) {
+    startup = false;
+    for( uint8_t offset = 0 ; offset < 5 ; offset++ ) {
+      nextUpdate[offset] = 0 ; 
+      segmentOffset[offset] = 0 ; 
+    }
+  }
+
+  PatternRotateThoughSubSections( nextUpdate[0], segmentOffset[0], PATTERN_RING_ONE , ARRAY_SIZE(PATTERN_RING_ONE), 1, 900, 1, gHue + (255/5) * 0);   
+  PatternRotateThoughSubSections( nextUpdate[1], segmentOffset[1], PATTERN_RING_TWO , ARRAY_SIZE(PATTERN_RING_TWO), 1, 150, 1, gHue + (255/5) * 1);   
+  PatternRotateThoughSubSections( nextUpdate[2], segmentOffset[2], PATTERN_RING_THREE , ARRAY_SIZE(PATTERN_RING_THREE), 1, 75, 1, gHue + (255/5) * 2);   
+  PatternRotateThoughSubSections( nextUpdate[3], segmentOffset[3], PATTERN_RING_FOUR , ARRAY_SIZE(PATTERN_RING_FOUR), 1, 50, 1, gHue + (255/5) * 3);   
+  PatternRotateThoughSubSections( nextUpdate[4], segmentOffset[4], PATTERN_RING_FIVE , ARRAY_SIZE(PATTERN_RING_FIVE), 1, 38, 1, gHue + (255/5) * 4);   
 }
 
 void Rings() {
-
   PatternSetColor( PATTERN_RING_ONE,   ARRAY_SIZE(PATTERN_RING_ONE), gHue + (255/5) * 0);
   PatternSetColor( PATTERN_RING_TWO,   ARRAY_SIZE(PATTERN_RING_TWO), gHue + (255/5) * 1);
   PatternSetColor( PATTERN_RING_THREE, ARRAY_SIZE(PATTERN_RING_THREE), gHue + (255/5) * 2);
   PatternSetColor( PATTERN_RING_FOUR,  ARRAY_SIZE(PATTERN_RING_FOUR), gHue + (255/5) * 3);
   PatternSetColor( PATTERN_RING_FIVE,  ARRAY_SIZE(PATTERN_RING_FIVE), gHue + (255/5) * 4);
+}
 
+void Sixth() {
+  fadeToBlackBy(leds, NUM_LEDS, 6);
+  static unsigned long nextUpdate[1]  ;
+  static uint16_t segmentOffset[1] ; 
+  PatternRotateThoughSubSections( nextUpdate[0], segmentOffset[0], PATTERN_SIXTH , ARRAY_SIZE(PATTERN_SIXTH), 10, 200, 1, gHue);   
 }
