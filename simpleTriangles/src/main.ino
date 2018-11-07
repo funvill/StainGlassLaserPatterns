@@ -303,6 +303,9 @@ void Rhombus() {
   if (nextUpdate < millis()) {
     nextUpdate = millis() + SPEED;
     SPEED += 20 ; 
+    if( SPEED > 1000 ) { 
+      SPEED = 350 ;
+    }
 
     uint16_t segmentsCount = ARRAY_SIZE(PATTERN_RHOMBUS) / 2 ; 
     for( uint16_t segmentOffset = 0 ; segmentOffset < segmentsCount ; segmentOffset++) {
