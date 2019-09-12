@@ -18,7 +18,7 @@ FASTLED_USING_NAMESPACE
 #define NUM_LEDS    48
 CRGB leds[NUM_LEDS];
 
-#define BRIGHTNESS          96
+#define BRIGHTNESS          255
 #define FRAMES_PER_SECOND  120
 
 const unsigned char PATTERN_GEMS_BOTTOM_RIGHT[] = {4,5,6,7,8,9}; 
